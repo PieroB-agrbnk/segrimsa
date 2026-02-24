@@ -1,10 +1,12 @@
 """
 SEGRIMSA - Formulario de Registro de Catequesis
 Supabase + Colores SEGRIMSA + Lista colegios Lima
+SIN st.form para que los radio buttons funcionen dinamicamente
 """
 
 import streamlit as st
 import requests
+import re
 from datetime import datetime
 
 # ========================================
@@ -307,7 +309,7 @@ st.markdown("""
         box-shadow: 0 0 0 3px rgba(62,193,211,0.15) !important;
     }
 
-    .stFormSubmitButton > button {
+    .stButton > button {
         font-family: 'Poppins', sans-serif !important;
         width: 100%; padding: 15px !important;
         font-size: 0.95rem !important; font-weight: 600 !important;
@@ -319,7 +321,7 @@ st.markdown("""
         transition: all 0.3s ease !important;
         margin-top: 8px !important;
     }
-    .stFormSubmitButton > button:hover {
+    .stButton > button:hover {
         background: #35aebf !important;
         transform: translateY(-1px) !important;
         box-shadow: 0 6px 24px rgba(62,193,211,0.35) !important;
@@ -340,23 +342,14 @@ st.markdown("""
     }
     .ok-card p { color: #718096; font-size: 0.88rem; line-height: 1.7; }
 
-    .stButton > button[kind="primary"] {
-        font-family: 'Poppins', sans-serif !important;
-        width: 100%; padding: 14px !important;
-        font-size: 0.9rem !important; font-weight: 600 !important;
-        border-radius: 50px !important;
-        background: #3EC1D3 !important; color: white !important; border: none !important;
-    }
-
     .foot {
         background: #3EC1D3; text-align: center; padding: 20px 24px 16px;
     }
     .foot .brand { color: white; font-weight: 600; font-size: 0.85rem; letter-spacing: 1.5px; margin-bottom: 4px; }
     .foot p { color: rgba(255,255,255,0.7); font-size: 0.68rem; letter-spacing: 1px; margin: 0; }
 
-    .stForm { border: none !important; padding: 0 !important; }
     .stAlert { border-radius: 10px !important; }
-    
+
     /* Hermano card */
     .hermano-card {
         background: #f0fafb;
@@ -371,6 +364,16 @@ st.markdown("""
         color: #2d3748;
         margin-bottom: 8px;
     }
+
+    /* Error inline debajo de cada campo */
+    .field-error {
+        color: #e53e3e;
+        font-size: 0.72rem;
+        font-weight: 500;
+        margin-top: -10px;
+        margin-bottom: 8px;
+        padding-left: 4px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -384,11 +387,18 @@ def guardar_registro(data):
     return response.status_code in (200, 201)
 
 
+def limpiar_telefono(tel):
+    """Extrae solo digitos del telefono."""
+    return re.sub(r'\D', '', tel)
+
+
 # ========================================
-# INICIALIZAR
+# INICIALIZAR SESSION STATE
 # ========================================
 if "submitted" not in st.session_state:
     st.session_state.submitted = False
+if "errores_campo" not in st.session_state:
+    st.session_state.errores_campo = {}
 
 
 # ========================================
@@ -407,7 +417,7 @@ st.markdown("""
 
 
 # ========================================
-# EXITO
+# PANTALLA DE EXITO
 # ========================================
 if st.session_state.submitted:
     st.markdown("""
@@ -420,7 +430,11 @@ if st.session_state.submitted:
     </div>
     """, unsafe_allow_html=True)
     if st.button("Registrar otro hijo(a)", type="primary"):
+        # Limpiar todo el session_state
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
         st.session_state.submitted = False
+        st.session_state.errores_campo = {}
         st.rerun()
     st.markdown("""
     <div class="foot">
@@ -432,176 +446,215 @@ if st.session_state.submitted:
 
 
 # ========================================
-# PREGUNTA DE HERMANOS (FUERA del form)
+# HELPER: mostrar error inline
 # ========================================
-# Esto va primero, fuera del form, para que se actualice inmediatamente
-if "num_hermanos" not in st.session_state:
-    st.session_state.num_hermanos = "No"
+errores = st.session_state.errores_campo
+
+def mostrar_error(campo):
+    if campo in errores:
+        st.markdown(f'<div class="field-error">⚠️ {errores[campo]}</div>', unsafe_allow_html=True)
 
 
 # ========================================
-# FORMULARIO
+# FORMULARIO (widgets libres, sin st.form)
 # ========================================
-with st.form("registro_catequesis", clear_on_submit=True):
 
-    # --- Seccion 1: Padre/Madre ---
-    st.markdown("""
-    <div class="sec">
-        <div class="sec-dot">1</div>
-        <div class="sec-txt">Datos del padre o madre</div>
-    </div>
-    """, unsafe_allow_html=True)
+# --- Seccion 1: Padre/Madre ---
+st.markdown("""
+<div class="sec">
+    <div class="sec-dot">1</div>
+    <div class="sec-txt">Datos del padre o madre</div>
+</div>
+""", unsafe_allow_html=True)
 
-    nombre_padre = st.text_input("Nombre completo *", placeholder="Ej: Maria Lopez Garcia")
+nombre_padre = st.text_input("Nombre completo *", placeholder="Ej: Maria Lopez Garcia", key="nombre_padre")
+mostrar_error("nombre_padre")
 
+col1, col2 = st.columns(2)
+with col1:
+    telefono = st.text_input("Celular (9 digitos) *", placeholder="987654321", max_chars=9, key="telefono")
+    mostrar_error("telefono")
+with col2:
+    email = st.text_input("Correo electronico *", placeholder="correo@gmail.com", key="email")
+    mostrar_error("email")
+
+# --- Seccion 2: Nino ---
+st.markdown("""
+<div class="sec">
+    <div class="sec-dot">2</div>
+    <div class="sec-txt">Datos del niño o niña</div>
+</div>
+""", unsafe_allow_html=True)
+
+nombre_nino = st.text_input("Nombre completo del nino(a) *", placeholder="Ej: Jose Lopez Perez", key="nombre_nino")
+mostrar_error("nombre_nino")
+
+colegio_sel = st.selectbox("Colegio *", COLEGIOS_LIMA, key="colegio_sel")
+mostrar_error("colegio")
+
+colegio_otro = ""
+if colegio_sel == "OTRO (escribir abajo)":
+    colegio_otro = st.text_input("Escriba el nombre del colegio *", placeholder="Nombre del colegio", key="colegio_otro")
+    mostrar_error("colegio_otro")
+
+col1, col2 = st.columns(2)
+with col1:
+    grado = st.selectbox("Grado *", GRADOS, key="grado")
+    mostrar_error("grado")
+with col2:
+    seccion = st.text_input("Seccion", placeholder="A, B, C...", max_chars=5, key="seccion")
+
+
+# --- Seccion 3: Hermanos ---
+st.markdown("""
+<div class="sec">
+    <div class="sec-dot">3</div>
+    <div class="sec-txt">Hermanos en el colegio</div>
+</div>
+""", unsafe_allow_html=True)
+
+tiene_hermano = st.radio(
+    "Tiene otro hijo(a) en algun colegio?",
+    ["No", "Si"],
+    horizontal=True,
+    key="tiene_hermano",
+)
+
+# Variables por defecto
+hermano1_nombre = hermano1_colegio = hermano1_grado = ""
+hermano2_nombre = hermano2_colegio = hermano2_grado = ""
+
+if tiene_hermano == "Si":
+    # --- Hermano 1 ---
+    st.markdown('<div class="hermano-card"><div class="hermano-title">👦 Hermano(a) 1</div>', unsafe_allow_html=True)
+    hermano1_nombre = st.text_input("Nombre completo", key="h1n", placeholder="Nombre del hermano(a)")
+    hermano1_colegio_sel = st.selectbox("Colegio", COLEGIOS_LIMA, key="h1c")
+    if hermano1_colegio_sel == "OTRO (escribir abajo)":
+        h1_colegio_otro = st.text_input("Nombre del colegio", key="h1co")
+        hermano1_colegio = h1_colegio_otro
+    else:
+        hermano1_colegio = hermano1_colegio_sel
     col1, col2 = st.columns(2)
     with col1:
-        telefono = st.text_input("Celular *", placeholder="987 654 321", max_chars=12)
+        h1_grado_sel = st.selectbox("Grado", GRADOS, key="h1g")
     with col2:
-        email = st.text_input("Correo electronico *", placeholder="correo@gmail.com")
+        h1_seccion = st.text_input("Seccion", key="h1s", max_chars=5, placeholder="A, B...")
+    hermano1_grado = f"{h1_grado_sel} {h1_seccion}".strip()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- Seccion 2: Nino ---
-    st.markdown("""
-    <div class="sec">
-        <div class="sec-dot">2</div>
-        <div class="sec-txt">Datos del niño o niña</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    nombre_nino = st.text_input("Nombre completo del nino(a) *", placeholder="Ej: Jose Lopez Perez")
-
-    colegio_sel = st.selectbox("Colegio *", COLEGIOS_LIMA)
-
-    colegio_otro = ""
-    if colegio_sel == "OTRO (escribir abajo)":
-        colegio_otro = st.text_input("Escriba el nombre del colegio *", placeholder="Nombre del colegio")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        grado = st.selectbox("Grado *", GRADOS)
-    with col2:
-        seccion = st.text_input("Seccion", placeholder="A, B, C...", max_chars=5)
-
-    # --- Seccion 3: Hermanos ---
-    st.markdown("""
-    <div class="sec">
-        <div class="sec-dot">3</div>
-        <div class="sec-txt">Hermanos en el colegio</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    tiene_hermano = st.radio(
-        "Tiene otro hijo(a) en algun colegio?",
+    # --- Pregunta: otro hermano mas? ---
+    tiene_hermano2 = st.radio(
+        "Tiene otro hermano(a) adicional?",
         ["No", "Si"],
         horizontal=True,
+        key="tiene_hermano2",
     )
 
-    # Hermano 1 - siempre visible, labels claros
-    hermano1_nombre = hermano1_colegio = hermano1_grado = ""
-    hermano1_colegio_otro = ""
-    hermano2_nombre = hermano2_colegio = hermano2_grado = ""
-    hermano2_colegio_otro = ""
-
-    if tiene_hermano == "Si":
-        # --- Hermano 1 ---
-        st.markdown('<div class="hermano-card"><div class="hermano-title">👦 Hermano(a) 1</div>', unsafe_allow_html=True)
-        hermano1_nombre = st.text_input("Nombre completo", key="h1n", placeholder="Nombre del hermano(a)")
-        hermano1_colegio_sel = st.selectbox("Colegio", COLEGIOS_LIMA, key="h1c")
-        if hermano1_colegio_sel == "OTRO (escribir abajo)":
-            hermano1_colegio_otro = st.text_input("Nombre del colegio", key="h1co")
-            hermano1_colegio = hermano1_colegio_otro
+    # --- Hermano 2 ---
+    if tiene_hermano2 == "Si":
+        st.markdown('<div class="hermano-card"><div class="hermano-title">👧 Hermano(a) 2</div>', unsafe_allow_html=True)
+        hermano2_nombre = st.text_input("Nombre completo", key="h2n", placeholder="Nombre del hermano(a)")
+        hermano2_colegio_sel = st.selectbox("Colegio", COLEGIOS_LIMA, key="h2c")
+        if hermano2_colegio_sel == "OTRO (escribir abajo)":
+            h2_colegio_otro = st.text_input("Nombre del colegio", key="h2co")
+            hermano2_colegio = h2_colegio_otro
         else:
-            hermano1_colegio = hermano1_colegio_sel
+            hermano2_colegio = hermano2_colegio_sel
         col1, col2 = st.columns(2)
         with col1:
-            h1_grado_sel = st.selectbox("Grado", GRADOS, key="h1g")
+            h2_grado_sel = st.selectbox("Grado", GRADOS, key="h2g")
         with col2:
-            h1_seccion = st.text_input("Seccion", key="h1s", max_chars=5, placeholder="A, B...")
-        hermano1_grado = f"{h1_grado_sel} {h1_seccion}".strip()
+            h2_seccion = st.text_input("Seccion", key="h2s", max_chars=5, placeholder="A, B...")
+        hermano2_grado = f"{h2_grado_sel} {h2_seccion}".strip()
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # --- Pregunta: otro hermano mas? ---
-        tiene_hermano2 = st.radio(
-            "¿Tiene otro hermano(a) adicional?",
-            ["No", "Si"],
-            horizontal=True,
-            key="tiene_hermano2",
-        )
 
-        # --- Hermano 2 ---
-        if tiene_hermano2 == "Si":
-            st.markdown('<div class="hermano-card"><div class="hermano-title">👧 Hermano(a) 2</div>', unsafe_allow_html=True)
-            hermano2_nombre = st.text_input("Nombre completo", key="h2n", placeholder="Nombre del hermano(a)")
-            hermano2_colegio_sel = st.selectbox("Colegio", COLEGIOS_LIMA, key="h2c")
-            if hermano2_colegio_sel == "OTRO (escribir abajo)":
-                hermano2_colegio_otro = st.text_input("Nombre del colegio", key="h2co")
-                hermano2_colegio = hermano2_colegio_otro
-            else:
-                hermano2_colegio = hermano2_colegio_sel
-            col1, col2 = st.columns(2)
-            with col1:
-                h2_grado_sel = st.selectbox("Grado", GRADOS, key="h2g")
-            with col2:
-                h2_seccion = st.text_input("Seccion", key="h2s", max_chars=5, placeholder="A, B...")
-            hermano2_grado = f"{h2_grado_sel} {h2_seccion}".strip()
-            st.markdown('</div>', unsafe_allow_html=True)
+# --- Espaciado ---
+st.markdown("<div style='height: 16px'></div>", unsafe_allow_html=True)
 
-    # --- Nota ---
-    st.markdown("""
-    <p style="font-size: 0.75rem; color: #a0aec0; margin-top: 12px;">
-    Si tiene hermanos, seleccione "Si" arriba, llene los datos y luego presione Enviar.
-    </p>
-    """, unsafe_allow_html=True)
 
-    # --- Submit ---
-    submitted = st.form_submit_button("Enviar registro")
+# ========================================
+# BOTON ENVIAR
+# ========================================
+if st.button("ENVIAR REGISTRO", type="primary", use_container_width=True):
+    # Determinar colegio
+    colegio_final = colegio_otro.strip() if colegio_sel == "OTRO (escribir abajo)" else colegio_sel
 
-    if submitted:
-        # Determinar colegio
-        colegio_final = colegio_otro.strip() if colegio_sel == "OTRO (escribir abajo)" else colegio_sel
+    # --- Validacion especifica por campo ---
+    nuevos_errores = {}
 
-        errores = []
-        if not nombre_padre.strip():
-            errores.append("Nombre del padre/madre")
-        if not telefono.strip() or len(telefono.strip()) < 7:
-            errores.append("Telefono valido")
-        if not email.strip() or "@" not in email:
-            errores.append("Correo electronico")
-        if not nombre_nino.strip():
-            errores.append("Nombre del nino(a)")
-        if not colegio_final:
-            errores.append("Colegio")
-        if not grado:
-            errores.append("Grado")
+    # Nombre padre
+    if not nombre_padre.strip():
+        nuevos_errores["nombre_padre"] = "Ingrese el nombre del padre o madre"
 
-        if errores:
-            st.error(f"Por favor complete: {', '.join(errores)}")
+    # Telefono
+    tel_limpio = limpiar_telefono(telefono)
+    if not tel_limpio:
+        nuevos_errores["telefono"] = "Ingrese su numero de celular"
+    elif len(tel_limpio) != 9:
+        nuevos_errores["telefono"] = f"El celular debe tener 9 digitos (tiene {len(tel_limpio)})"
+    elif not tel_limpio.startswith("9"):
+        nuevos_errores["telefono"] = "El celular debe empezar con 9"
+
+    # Email
+    email_val = email.strip()
+    if not email_val:
+        nuevos_errores["email"] = "Ingrese su correo electronico"
+    elif "@" not in email_val:
+        nuevos_errores["email"] = "Falta el @ en el correo (ej: nombre@gmail.com)"
+    elif "." not in email_val.split("@")[-1]:
+        nuevos_errores["email"] = "Correo incompleto (ej: nombre@gmail.com)"
+
+    # Nombre nino
+    if not nombre_nino.strip():
+        nuevos_errores["nombre_nino"] = "Ingrese el nombre del nino(a)"
+
+    # Colegio
+    if not colegio_final:
+        nuevos_errores["colegio"] = "Seleccione un colegio"
+    elif colegio_sel == "OTRO (escribir abajo)" and not colegio_otro.strip():
+        nuevos_errores["colegio_otro"] = "Escriba el nombre del colegio"
+
+    # Grado
+    if not grado:
+        nuevos_errores["grado"] = "Seleccione el grado"
+
+    # Guardar errores y rerun para mostrar inline
+    st.session_state.errores_campo = nuevos_errores
+
+    if nuevos_errores:
+        # Resumen de errores arriba
+        msgs = list(nuevos_errores.values())
+        st.error("Por favor corrija lo siguiente:\n" + "\n".join(f"• {m}" for m in msgs))
+        st.rerun()  # Rerun para que los errores aparezcan debajo de cada campo
+    else:
+        # Todo OK - enviar a Supabase
+        grado_completo = f"{grado} {seccion}".strip()
+        data = {
+            "nombre_padre": nombre_padre.strip().title(),
+            "telefono": tel_limpio,
+            "email": email_val.lower(),
+            "nombre_nino": nombre_nino.strip().title(),
+            "colegio": colegio_final.strip().title(),
+            "grado": grado_completo,
+            "tiene_hermano": 1 if tiene_hermano == "Si" else 0,
+            "hermano1_nombre": hermano1_nombre.strip().title() if hermano1_nombre else None,
+            "hermano1_colegio": hermano1_colegio.strip().title() if hermano1_colegio else None,
+            "hermano1_grado": hermano1_grado if hermano1_grado else None,
+            "hermano2_nombre": hermano2_nombre.strip().title() if hermano2_nombre else None,
+            "hermano2_colegio": hermano2_colegio.strip().title() if hermano2_colegio else None,
+            "hermano2_grado": hermano2_grado if hermano2_grado else None,
+            "evento": "Primera Comunion 2026",
+            "sacramento": "Primera Comunion",
+            "anio": 2026,
+        }
+
+        if guardar_registro(data):
+            st.session_state.submitted = True
+            st.session_state.errores_campo = {}
+            st.rerun()
         else:
-            grado_completo = f"{grado} {seccion}".strip()
-            data = {
-                "nombre_padre": nombre_padre.strip().title(),
-                "telefono": telefono.strip(),
-                "email": email.strip().lower(),
-                "nombre_nino": nombre_nino.strip().title(),
-                "colegio": colegio_final.strip().title(),
-                "grado": grado_completo,
-                "tiene_hermano": 1 if tiene_hermano != "No" else 0,
-                "hermano1_nombre": hermano1_nombre.strip().title() if hermano1_nombre else None,
-                "hermano1_colegio": hermano1_colegio.strip().title() if hermano1_colegio else None,
-                "hermano1_grado": hermano1_grado if hermano1_grado else None,
-                "hermano2_nombre": hermano2_nombre.strip().title() if hermano2_nombre else None,
-                "hermano2_colegio": hermano2_colegio.strip().title() if hermano2_colegio else None,
-                "hermano2_grado": hermano2_grado if hermano2_grado else None,
-                "evento": "Primera Comunion 2026",
-                "sacramento": "Primera Comunion",
-                "anio": 2026,
-            }
-
-            if guardar_registro(data):
-                st.session_state.submitted = True
-                st.rerun()
-            else:
-                st.error("Error guardando el registro. Intente de nuevo.")
+            st.error("Error guardando el registro. Intente de nuevo.")
 
 
 # Footer
