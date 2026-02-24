@@ -401,7 +401,7 @@ st.markdown("""
         <div class="sub">FOTOGRAFIA & IMPRENTA</div>
     </div>
     <div class="hero-divider"></div>
-    <div class="hero-title">Registro de Catequesis</div>
+    <div class="hero-title">Registro</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -464,7 +464,7 @@ with st.form("registro_catequesis", clear_on_submit=True):
     st.markdown("""
     <div class="sec">
         <div class="sec-dot">2</div>
-        <div class="sec-txt">Datos del nino o nina</div>
+        <div class="sec-txt">Datos del niño o niña</div>
     </div>
     """, unsafe_allow_html=True)
 
