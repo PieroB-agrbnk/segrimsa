@@ -502,8 +502,9 @@ with st.form("registro_catequesis", clear_on_submit=True):
     hermano2_nombre = hermano2_colegio = hermano2_grado = ""
     hermano2_colegio_otro = ""
 
-    if tiene_hermano in ("Si"):
-        st.markdown('<div class="hermano-card"><div class="hermano-title">Hermano(a) 1</div>', unsafe_allow_html=True)
+    if tiene_hermano == "Si":
+        # --- Hermano 1 ---
+        st.markdown('<div class="hermano-card"><div class="hermano-title">👦 Hermano(a) 1</div>', unsafe_allow_html=True)
         hermano1_nombre = st.text_input("Nombre completo", key="h1n", placeholder="Nombre del hermano(a)")
         hermano1_colegio_sel = st.selectbox("Colegio", COLEGIOS_LIMA, key="h1c")
         if hermano1_colegio_sel == "OTRO (escribir abajo)":
@@ -519,7 +520,31 @@ with st.form("registro_catequesis", clear_on_submit=True):
         hermano1_grado = f"{h1_grado_sel} {h1_seccion}".strip()
         st.markdown('</div>', unsafe_allow_html=True)
 
+        # --- Pregunta: otro hermano mas? ---
+        tiene_hermano2 = st.radio(
+            "¿Tiene otro hermano(a) adicional?",
+            ["No", "Si"],
+            horizontal=True,
+            key="tiene_hermano2",
+        )
 
+        # --- Hermano 2 ---
+        if tiene_hermano2 == "Si":
+            st.markdown('<div class="hermano-card"><div class="hermano-title">👧 Hermano(a) 2</div>', unsafe_allow_html=True)
+            hermano2_nombre = st.text_input("Nombre completo", key="h2n", placeholder="Nombre del hermano(a)")
+            hermano2_colegio_sel = st.selectbox("Colegio", COLEGIOS_LIMA, key="h2c")
+            if hermano2_colegio_sel == "OTRO (escribir abajo)":
+                hermano2_colegio_otro = st.text_input("Nombre del colegio", key="h2co")
+                hermano2_colegio = hermano2_colegio_otro
+            else:
+                hermano2_colegio = hermano2_colegio_sel
+            col1, col2 = st.columns(2)
+            with col1:
+                h2_grado_sel = st.selectbox("Grado", GRADOS, key="h2g")
+            with col2:
+                h2_seccion = st.text_input("Seccion", key="h2s", max_chars=5, placeholder="A, B...")
+            hermano2_grado = f"{h2_grado_sel} {h2_seccion}".strip()
+            st.markdown('</div>', unsafe_allow_html=True)
 
     # --- Nota ---
     st.markdown("""
