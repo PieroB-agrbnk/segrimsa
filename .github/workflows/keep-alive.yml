@@ -1,0 +1,46 @@
+name: Keep Alive - Streamlit + Supabase
+
+# Ejecuta cada 6 horas para evitar que Streamlit (12h) y Supabase (7 dias) se duerman
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # Cada 6 horas: 00:00, 06:00, 12:00, 18:00 UTC
+  workflow_dispatch:          # Permite ejecutar manualmente desde GitHub
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+
+      # --- PING 1: Streamlit App ---
+      - name: Ping Streamlit App
+        run: |
+          echo "🔄 Pinging Streamlit app..."
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -L --max-time 30 \
+            "https://segrimsa.streamlit.app")
+          
+          if [ "$RESPONSE" -eq 200 ] || [ "$RESPONSE" -eq 302 ]; then
+            echo "✅ Streamlit is awake! Status: $RESPONSE"
+          else
+            echo "⚠️ Streamlit returned status: $RESPONSE (may be waking up)"
+          fi
+
+      # --- PING 2: Supabase Database ---
+      - name: Ping Supabase Database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          echo "🔄 Pinging Supabase..."
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            --max-time 15 \
+            "${SUPABASE_URL}/rest/v1/registros_catequesis?select=count&limit=1" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}")
+          
+          if [ "$RESPONSE" -eq 200 ]; then
+            echo "✅ Supabase is alive! Status: $RESPONSE"
+          else
+            echo "❌ Supabase ping failed! Status: $RESPONSE"
+            exit 1
+          fi
