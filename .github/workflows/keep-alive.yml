@@ -1,46 +1,45 @@
 name: Keep Alive - Streamlit + Supabase
 
-# Ejecuta cada 6 horas para evitar que Streamlit (12h) y Supabase (7 dias) se duerman
 on:
   schedule:
-    - cron: '0 */6 * * *'   # Cada 6 horas: 00:00, 06:00, 12:00, 18:00 UTC
-  workflow_dispatch:          # Permite ejecutar manualmente desde GitHub
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
     steps:
 
-      # --- PING 1: Streamlit App ---
       - name: Ping Streamlit App
+        continue-on-error: true
         run: |
-          echo "🔄 Pinging Streamlit app..."
+          echo "Pinging Streamlit app..."
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -L --max-time 30 \
-            "https://segrimsa.streamlit.app")
-          
-          if [ "$RESPONSE" -eq 200 ] || [ "$RESPONSE" -eq 302 ]; then
-            echo "✅ Streamlit is awake! Status: $RESPONSE"
+            --max-time 30 --max-redirs 5 -L \
+            -A "Mozilla/5.0" \
+            "https://segrimsa.streamlit.app/")
+          echo "Streamlit status: $RESPONSE"
+          if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 400 ]; then
+            echo "Streamlit is awake!"
           else
-            echo "⚠️ Streamlit returned status: $RESPONSE (may be waking up)"
+            echo "Streamlit may be sleeping, ping sent anyway"
           fi
 
-      # --- PING 2: Supabase Database ---
       - name: Ping Supabase Database
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          echo "🔄 Pinging Supabase..."
+          echo "Pinging Supabase..."
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
             --max-time 15 \
             "${SUPABASE_URL}/rest/v1/registros_catequesis?select=count&limit=1" \
             -H "apikey: ${SUPABASE_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_KEY}")
-          
+          echo "Supabase status: $RESPONSE"
           if [ "$RESPONSE" -eq 200 ]; then
-            echo "✅ Supabase is alive! Status: $RESPONSE"
+            echo "Supabase is alive!"
           else
-            echo "❌ Supabase ping failed! Status: $RESPONSE"
+            echo "Supabase ping failed with status: $RESPONSE"
             exit 1
           fi
