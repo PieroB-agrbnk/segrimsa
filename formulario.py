@@ -521,13 +521,12 @@ tiene_hermano = st.radio(
 )
 
 # Variables por defecto
-hermano1_nombre = hermano1_colegio = hermano1_grado = ""
-hermano2_nombre = hermano2_colegio = hermano2_grado = ""
+hermano1_colegio = hermano1_grado = ""
+hermano2_colegio = hermano2_grado = ""
 
 if tiene_hermano == "Si":
     # --- Hermano 1 ---
     st.markdown('<div class="hermano-card"><div class="hermano-title">👦 Hermano(a) 1</div>', unsafe_allow_html=True)
-    hermano1_nombre = st.text_input("Nombre completo", key="h1n", placeholder="Nombre del hermano(a)")
     hermano1_colegio_sel = st.selectbox("Colegio", COLEGIOS_LIMA, key="h1c")
     if hermano1_colegio_sel == "OTRO (escribir abajo)":
         h1_colegio_otro = st.text_input("Nombre del colegio", key="h1co")
@@ -553,7 +552,6 @@ if tiene_hermano == "Si":
     # --- Hermano 2 ---
     if tiene_hermano2 == "Si":
         st.markdown('<div class="hermano-card"><div class="hermano-title">👧 Hermano(a) 2</div>', unsafe_allow_html=True)
-        hermano2_nombre = st.text_input("Nombre completo", key="h2n", placeholder="Nombre del hermano(a)")
         hermano2_colegio_sel = st.selectbox("Colegio", COLEGIOS_LIMA, key="h2c")
         if hermano2_colegio_sel == "OTRO (escribir abajo)":
             h2_colegio_otro = st.text_input("Nombre del colegio", key="h2co")
@@ -638,10 +636,8 @@ if st.button("ENVIAR REGISTRO", type="primary", use_container_width=True):
             "colegio": colegio_final.strip().title(),
             "grado": grado_completo,
             "tiene_hermano": 1 if tiene_hermano == "Si" else 0,
-            "hermano1_nombre": hermano1_nombre.strip().title() if hermano1_nombre else None,
             "hermano1_colegio": hermano1_colegio.strip().title() if hermano1_colegio else None,
             "hermano1_grado": hermano1_grado if hermano1_grado else None,
-            "hermano2_nombre": hermano2_nombre.strip().title() if hermano2_nombre else None,
             "hermano2_colegio": hermano2_colegio.strip().title() if hermano2_colegio else None,
             "hermano2_grado": hermano2_grado if hermano2_grado else None,
             "evento": "Primera Comunion 2026",
