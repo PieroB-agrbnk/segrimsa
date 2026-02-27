@@ -68,6 +68,7 @@ COLEGIOS_LIMA = [
     "Reina del Mundo",
     "International Christian School",
     "Liceo Naval Almirante Guise",
+    "San Luis de Barranco",
     "Santa Ursula",
     "Max Uhle",
     "Raimondi",
