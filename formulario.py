@@ -55,7 +55,7 @@ COLEGIOS_LIMA = [
     "Pamer Surco",
     "Trilce Surco",
     "Saco Oliveros Surco",
-    "Pio XII"
+    "Pio XII",
     # --- San Borja ---
     "San Ignacio de Recalde",
     "De La Inmaculada",
