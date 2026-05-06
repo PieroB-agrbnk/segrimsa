@@ -2,12 +2,19 @@
 SEGRIMSA - Formulario de Registro de Catequesis
 Supabase + Colores SEGRIMSA + Lista colegios Lima
 SIN st.form para que los radio buttons funcionen dinamicamente
+
+Sincroniza automaticamente con SEGRIMSA Pedidos:
+cada registro nuevo crea un cliente en el sistema interno.
 """
 
 import streamlit as st
 import requests
 import re
 from datetime import datetime
+
+# ◀ NUEVO: suprimir warnings de SSL (cert auto-firmado del servidor SEGRIMSA)
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ========================================
 # SUPABASE CONFIG
@@ -19,15 +26,18 @@ HEADERS = {
     "apikey": SUPABASE_KEY,
     "Authorization": f"Bearer {SUPABASE_KEY}",
     "Content-Type": "application/json",
-    "Prefer": "return=minimal",
+    "Prefer": "return=representation",  # ◀ NUEVO: para que devuelva el id del registro creado
 }
+
+# ◀ NUEVO: SEGRIMSA Pedidos config (opcional - si no esta configurado, no sincroniza)
+SEGRIMSA_WEBHOOK_URL = st.secrets.get("SEGRIMSA_WEBHOOK_URL", "")
+SEGRIMSA_WEBHOOK_TOKEN = st.secrets.get("SEGRIMSA_WEBHOOK_TOKEN", "")
 
 # ========================================
 # COLEGIOS DE LIMA
 # ========================================
 COLEGIOS_LIMA = [
     "",
-    # --- Todos los colegios en orden alfabético ---
     "Abraham Lincoln",
     "Alexander von Humboldt",
     "Alpamayo",
@@ -366,9 +376,55 @@ st.markdown("""
 # FUNCIONES
 # ========================================
 def guardar_registro(data):
+    """Guarda en Supabase. Devuelve el registro creado (con id) o None si fallo."""
     url = f"{SUPABASE_URL}/rest/v1/registros_catequesis"
-    response = requests.post(url, json=data, headers=HEADERS)
-    return response.status_code in (200, 201)
+    try:
+        response = requests.post(url, json=data, headers=HEADERS, timeout=10)
+        if response.status_code in (200, 201):
+            # ◀ NUEVO: con Prefer=return=representation, Supabase devuelve el registro
+            try:
+                created = response.json()
+                # Supabase devuelve una lista con un solo elemento
+                if isinstance(created, list) and created:
+                    return created[0]
+                if isinstance(created, dict):
+                    return created
+            except Exception:
+                pass
+            return data  # Fallback: devuelve los datos originales sin id
+        return None
+    except Exception:
+        return None
+
+
+# ◀ NUEVO: sincronizacion con SEGRIMSA Pedidos
+def enviar_a_segrimsa(data, supabase_id=None):
+    """Envia el registro al sistema de pedidos SEGRIMSA para crear un cliente.
+
+    Falla silenciosamente: si SEGRIMSA cae, el registro en Supabase NO se pierde
+    y el usuario igual ve la pantalla de exito. El equipo de SEGRIMSA lo importara
+    manualmente despues si hace falta.
+    """
+    if not SEGRIMSA_WEBHOOK_URL or not SEGRIMSA_WEBHOOK_TOKEN:
+        return  # No configurado, no hace nada
+
+    payload = dict(data)
+    if supabase_id:
+        payload["id"] = str(supabase_id)
+
+    try:
+        requests.post(
+            SEGRIMSA_WEBHOOK_URL,
+            json={"record": payload},
+            headers={
+                "Content-Type": "application/json",
+                "X-Webhook-Token": SEGRIMSA_WEBHOOK_TOKEN,
+            },
+            timeout=5,
+            verify=False,  # cert auto-firmado de SEGRIMSA mientras no haya dominio
+        )
+    except Exception:
+        pass  # No interrumpir el flujo del usuario si SEGRIMSA cae
 
 
 def limpiar_telefono(tel):
@@ -414,7 +470,6 @@ if st.session_state.submitted:
     </div>
     """, unsafe_allow_html=True)
     if st.button("Registrar otro hijo(a)", type="primary"):
-        # Limpiar todo el session_state
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.session_state.submitted = False
@@ -504,12 +559,10 @@ tiene_hermano = st.radio(
     key="tiene_hermano",
 )
 
-# Variables por defecto
 hermano1_colegio = hermano1_grado = ""
 hermano2_colegio = hermano2_grado = ""
 
 if tiene_hermano == "Si":
-    # --- Hermano 1 ---
     st.markdown('<div class="hermano-card"><div class="hermano-title">👦 Hermano(a) 1</div>', unsafe_allow_html=True)
     hermano1_colegio_sel = st.selectbox("Colegio", COLEGIOS_LIMA, key="h1c")
     if hermano1_colegio_sel == "OTRO (escribir abajo)":
@@ -525,7 +578,6 @@ if tiene_hermano == "Si":
     hermano1_grado = f"{h1_grado_sel} {h1_seccion}".strip()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- Pregunta: otro hermano mas? ---
     tiene_hermano2 = st.radio(
         "Tiene otro hermano(a) adicional?",
         ["No", "Si"],
@@ -533,7 +585,6 @@ if tiene_hermano == "Si":
         key="tiene_hermano2",
     )
 
-    # --- Hermano 2 ---
     if tiene_hermano2 == "Si":
         st.markdown('<div class="hermano-card"><div class="hermano-title">👧 Hermano(a) 2</div>', unsafe_allow_html=True)
         hermano2_colegio_sel = st.selectbox("Colegio", COLEGIOS_LIMA, key="h2c")
@@ -551,7 +602,6 @@ if tiene_hermano == "Si":
         st.markdown('</div>', unsafe_allow_html=True)
 
 
-# --- Espaciado ---
 st.markdown("<div style='height: 16px'></div>", unsafe_allow_html=True)
 
 
@@ -559,17 +609,13 @@ st.markdown("<div style='height: 16px'></div>", unsafe_allow_html=True)
 # BOTON ENVIAR
 # ========================================
 if st.button("ENVIAR REGISTRO", type="primary", use_container_width=True):
-    # Determinar colegio
     colegio_final = colegio_otro.strip() if colegio_sel == "OTRO (escribir abajo)" else colegio_sel
 
-    # --- Validacion especifica por campo ---
     nuevos_errores = {}
 
-    # Nombre padre
     if not nombre_padre.strip():
         nuevos_errores["nombre_padre"] = "Ingrese el nombre del padre o madre"
 
-    # Telefono
     tel_limpio = limpiar_telefono(telefono)
     if not tel_limpio:
         nuevos_errores["telefono"] = "Ingrese su numero de celular"
@@ -578,7 +624,6 @@ if st.button("ENVIAR REGISTRO", type="primary", use_container_width=True):
     elif not tel_limpio.startswith("9"):
         nuevos_errores["telefono"] = "El celular debe empezar con 9"
 
-    # Email
     email_val = email.strip()
     if not email_val:
         nuevos_errores["email"] = "Ingrese su correo electronico"
@@ -587,30 +632,24 @@ if st.button("ENVIAR REGISTRO", type="primary", use_container_width=True):
     elif "." not in email_val.split("@")[-1]:
         nuevos_errores["email"] = "Correo incompleto (ej: nombre@gmail.com)"
 
-    # Nombre nino
     if not nombre_nino.strip():
         nuevos_errores["nombre_nino"] = "Ingrese el nombre del nino(a)"
 
-    # Colegio
     if not colegio_final:
         nuevos_errores["colegio"] = "Seleccione un colegio"
     elif colegio_sel == "OTRO (escribir abajo)" and not colegio_otro.strip():
         nuevos_errores["colegio_otro"] = "Escriba el nombre del colegio"
 
-    # Grado
     if not grado:
         nuevos_errores["grado"] = "Seleccione el grado"
 
-    # Guardar errores y rerun para mostrar inline
     st.session_state.errores_campo = nuevos_errores
 
     if nuevos_errores:
-        # Resumen de errores arriba
         msgs = list(nuevos_errores.values())
         st.error("Por favor corrija lo siguiente:\n" + "\n".join(f"• {m}" for m in msgs))
-        st.rerun()  # Rerun para que los errores aparezcan debajo de cada campo
+        st.rerun()
     else:
-        # Todo OK - enviar a Supabase
         grado_completo = f"{grado} {seccion}".strip()
         data = {
             "nombre_padre": nombre_padre.strip().title(),
@@ -629,7 +668,13 @@ if st.button("ENVIAR REGISTRO", type="primary", use_container_width=True):
             "anio": 2026,
         }
 
-        if guardar_registro(data):
+        # ◀ MODIFICADO: guardar en Supabase y capturar registro creado
+        registro_creado = guardar_registro(data)
+        if registro_creado:
+            # ◀ NUEVO: sincronizar con SEGRIMSA Pedidos (no bloqueante)
+            supabase_id = registro_creado.get("id") if isinstance(registro_creado, dict) else None
+            enviar_a_segrimsa(data, supabase_id=supabase_id)
+
             st.session_state.submitted = True
             st.session_state.errores_campo = {}
             st.rerun()
