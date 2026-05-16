@@ -96,6 +96,8 @@ COLEGIOS_LIMA = [
     "Maria Reina",
     "Maria Reina Marianistas",
     "Markham College",
+    "Mater Christi",
+    "Mater Purissima",
     "Max Uhle",
     "Militar Leoncio Prado",
     "Newton College",
