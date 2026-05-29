@@ -434,6 +434,12 @@ def limpiar_telefono(tel):
     return re.sub(r'\D', '', tel)
 
 
+# ◀ NUEVO: normalizacion del documento (DNI o pasaporte)
+def limpiar_doc(doc):
+    """Normaliza el documento: quita espacios y pasa a mayusculas."""
+    return re.sub(r'\s+', '', doc).upper()
+
+
 # ========================================
 # INICIALIZAR SESSION STATE
 # ========================================
@@ -510,6 +516,10 @@ st.markdown("""
 
 nombre_padre = st.text_input("Nombre completo *", placeholder="Ej: Maria Lopez Garcia", key="nombre_padre")
 mostrar_error("nombre_padre")
+
+# ◀ NUEVO: documento de identidad (DNI o pasaporte)
+documento = st.text_input("DNI o pasaporte *", placeholder="Ej: 45678912", max_chars=20, key="documento")
+mostrar_error("documento")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -618,6 +628,15 @@ if st.button("ENVIAR REGISTRO", type="primary", use_container_width=True):
     if not nombre_padre.strip():
         nuevos_errores["nombre_padre"] = "Ingrese el nombre del padre o madre"
 
+    # ◀ NUEVO: validacion del documento (DNI = 8 digitos / pasaporte = alfanumerico >=6)
+    doc_limpio = limpiar_doc(documento)
+    if not doc_limpio:
+        nuevos_errores["documento"] = "Ingrese el DNI o pasaporte"
+    elif doc_limpio.isdigit() and len(doc_limpio) != 8:
+        nuevos_errores["documento"] = f"El DNI debe tener 8 digitos (tiene {len(doc_limpio)})"
+    elif not doc_limpio.isdigit() and len(doc_limpio) < 6:
+        nuevos_errores["documento"] = "Pasaporte invalido (muy corto)"
+
     tel_limpio = limpiar_telefono(telefono)
     if not tel_limpio:
         nuevos_errores["telefono"] = "Ingrese su numero de celular"
@@ -655,6 +674,7 @@ if st.button("ENVIAR REGISTRO", type="primary", use_container_width=True):
         grado_completo = f"{grado} {seccion}".strip()
         data = {
             "nombre_padre": nombre_padre.strip().title(),
+            "documento": doc_limpio,  # ◀ NUEVO
             "telefono": tel_limpio,
             "email": email_val.lower(),
             "nombre_nino": nombre_nino.strip().title(),
