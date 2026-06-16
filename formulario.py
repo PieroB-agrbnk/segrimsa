@@ -53,6 +53,7 @@ COLEGIOS_LIMA = [
     "Champagnat",
     "Claretiano",
     "Colegio de la Inmaculada",
+    "Colegio Euroamericano",
     "Colegios Pamer",
     "Colegios Trilce",
     "Concordia",
