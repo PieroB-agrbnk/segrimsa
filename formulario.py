@@ -45,6 +45,7 @@ COLEGIOS_LIMA = [
     "Andre Malraux",
     "Antonio Raimondi",
     "Bartolome Herrera",
+    "Belen",
     "Belisario Suarez",
     "Bertolt Brecht",
     "Cambridge College Lima",
