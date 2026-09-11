@@ -84,6 +84,7 @@ COLEGIOS_LIMA = [
     "Jean Le Boulch",
     "Jose Antonio Encinas",
     "Jose Galvez",
+    "Jose Quiñones",
     "La Casa de Carton",
     "La Merced de Ate",
     "La Molina Christian Schools",
