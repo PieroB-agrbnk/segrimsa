@@ -168,6 +168,7 @@ COLEGIOS_LIMA = [
     "Santisimo Nombre de Jesus",
     "Santo Domingo de Guzman",
     "Santo Tomas de Aquino",
+    "St. George",
     "Sophianum",
     "Trener",
     "Trilce Ate",
