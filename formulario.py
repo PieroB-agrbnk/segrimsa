@@ -170,6 +170,7 @@ COLEGIOS_LIMA = [
     "Santo Tomas de Aquino",
     "St. George",
     "Sophianum",
+    "Sor Querubina",
     "Trener",
     "Trilce Ate",
     "Trilce La Molina",
