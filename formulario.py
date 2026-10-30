@@ -116,6 +116,7 @@ COLEGIOS_LIMA = [
     "Pamer La Molina",
     "Pamer Surco",
     "Parroquial de la Luz",
+    "Pedro Ruiz Gallo",
     "Peruano Britanico",
     "Pestalozzi",
     "Pio XII",
