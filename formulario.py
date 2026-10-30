@@ -93,6 +93,7 @@ COLEGIOS_LIMA = [
     "Lord Byron",
     "Los Alamos",
     "Los Reyes Rojos",
+    "Magister",
     "Maria Auxiliadora",
     "Maria Auxiliadora Magdalena",
     "Maria Auxiliadora Miraflores",
